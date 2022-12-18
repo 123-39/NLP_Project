@@ -11,8 +11,6 @@ Original file is located at
 
 # !pip install googletrans==3.1.0a0
 
-# !pip install pymorphy2
-
 !pip install transformers datasets eli5
 
 import numpy as np
@@ -25,9 +23,7 @@ nltk.download('punkt')
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 
-# from pymorphy2 import MorphAnalyzer
-
-# import eli5
+import eli5
 
 import re, string
 from collections import defaultdict, Counter
@@ -112,17 +108,12 @@ print("Translated non-sarcasm: ", len(df_en_non_sarcasm))
 print("Translated sarcasm: ", len(df_en_sarcasm))
 print("Russian jokes: ", len(df_ru_jokes))
 
-# # simple dataset
-# non_sarcasm_num = 500
-# sarcasm_num = 200
-# jokes_num = 300
-
-# # simple dataset without jokes
-# non_sarcasm_num = 500
-# sarcasm_num = 500
+# # big dataset without jokes
+# non_sarcasm_num = 9500
+# sarcasm_num = 9500
 # jokes_num = 0
 
-# big dataset
+# big dataset with jokes
 non_sarcasm_num = 10000
 sarcasm_num = 5000
 jokes_num = 5000
@@ -149,15 +140,18 @@ n_test = 0.3
 
 ind = round(len(df)*n_train)
 df_train = df.iloc[0:ind, :] 
-df_test = df.iloc[ind:, :] 
-print(len(df_train), len(df_test))
+# df_test = df.iloc[ind:, :] 
+print(len(df_train))
+# print(len(df_test))
+
+# df_train.to_csv('/content/drive/MyDrive/Sarcastic_сomments/train_final_no_jokes.csv', index=False)
 
 df_train.to_csv('/content/drive/MyDrive/Sarcastic_сomments/train_final.csv', index=False)
 df_test.to_csv('/content/drive/MyDrive/Sarcastic_сomments/test_final.csv', index=False)
 
-"""## Data preprocessing for LogReg concept
+"""## LogReg (baseline score)
 
-I strongly believe that we should preprosess our data AFTER the translation (as it is done here), because such way we won't loose some set expressions
+### Data preprocessing
 
 Remove links (just in case)
 """
@@ -170,6 +164,30 @@ def remove_links(text):
 def remove_between_brackets(text):
     return re.sub('\[[^]]*\]', '', text)
 
+"""Preprosess data"""
+
+def preprosess_data(dataframe):
+    dataframe['comment'] = dataframe['comment'].apply(remove_links)
+    dataframe['comment'] = dataframe['comment'].apply(remove_between_brackets)
+    return dataframe
+
+# df_train = pd.read_csv('/content/drive/MyDrive/Sarcastic_сomments/train_final.csv')
+df_train = pd.read_csv('/content/drive/MyDrive/Sarcastic_сomments/train_final_no_jokes.csv')
+
+df_test = pd.read_csv('/content/drive/MyDrive/Sarcastic_сomments/test_final.csv')
+
+df_train_preprosessed = preprosess_data(df_train)
+df_test_preprosessed = preprosess_data(df_test)
+
+df_train_preprosessed.head()
+
+"""Import data"""
+
+X_train = df_train_preprosessed.comment
+Y_train = df_train_preprosessed.label
+X_test = df_test_preprosessed.comment
+Y_test = df_test_preprosessed.label
+
 """Make a set of russian stop words including punctuation signs and digits"""
 
 nltk.download("stopwords")
@@ -179,54 +197,7 @@ ru_stopwords.update(punctuation)
 
 print(ru_stopwords)
 
-"""Transfer sentences to lists of tokens, remove stopwords"""
-
-class Tokenizer:
-    def __init__(self, word_pattern="[\w']+"):
-        self.word_pattern = re.compile(word_pattern)
-
-    def tokenize(self, text):
-        return self.word_pattern.findall(text)
-
-tok = Tokenizer()
-def tokenize_and_remove_stopwords(text): 
-    return [word for word in tok.tokenize(text) if word not in ru_stopwords]
-
-"""Lemmatize each word """
-
-morph = MorphAnalyzer()
-def lemmatization(text_list):
-    return [morph.parse(word)[0].normal_form for word in text_list]
-
-"""Preprosess data"""
-
-def preprosess_data(dataframe):
-    dataframe['comment'] = dataframe['comment'].apply(remove_links)
-    dataframe['comment'] = dataframe['comment'].apply(remove_between_brackets)
-    # dataframe['comment'] = dataframe['comment'].apply(tokenize_and_remove_stopwords)
-    # dataframe['comment'] = dataframe['comment'].apply(lemmatization)
-    return dataframe
-
-df_train = pd.read_csv('/content/drive/MyDrive/Sarcastic_сomments/train_final.csv')
-df_test = pd.read_csv('/content/drive/MyDrive/Sarcastic_сomments/test_final.csv')
-df_train_preprosessed = preprosess_data(df_train)
-df_test_preprosessed = preprosess_data(df_test)
-
-df_train_preprosessed.head()
-
-df_test_preprosessed.head()
-
-"""## LogReg (baseline score)
-
-Import data
-"""
-
-X_train = df_train_preprosessed.comment
-Y_train = df_train_preprosessed.label
-X_test = df_test_preprosessed.comment
-Y_test = df_test_preprosessed.label
-
-"""Tf-Idf vectorizer"""
+"""### Tf-Idf vectorizer"""
 
 counter_tfidf = TfidfVectorizer(stop_words=ru_stopwords, ngram_range=(1,1), lowercase=True)
 
@@ -235,7 +206,7 @@ count_test = counter_tfidf.transform(X_test)
 
 print(count_train[0]) # the tf-idf is between [0,1]
 
-"""LogReg model """
+"""### LogReg model """
 
 model_lr = LogisticRegression(random_state = 12345, max_iter = 10000, n_jobs = -1) # -1 means using all processors (CPU cores)
 
@@ -490,6 +461,7 @@ classifier = BertClassifier(
 """Make preparation"""
 
 df_train = pd.read_csv('/content/drive/MyDrive/Sarcastic_сomments/train_final.csv')
+# df_train = pd.read_csv('/content/drive/MyDrive/Sarcastic_сomments/train_final_no_jokes.csv')
 df_test = pd.read_csv('/content/drive/MyDrive/Sarcastic_сomments/test_final.csv')
 
 X = df_train.comment
@@ -549,6 +521,7 @@ def tokenize_func(text):
 """Preprocess the data"""
 
 df_train = pd.read_csv('/content/drive/MyDrive/Sarcastic_сomments/train_final.csv')
+# df_train = pd.read_csv('/content/drive/MyDrive/Sarcastic_сomments/train_final_no_jokes.csv')
 df_train_preprosessed = df_train
 df_train_preprosessed['comment'] = df_train_preprosessed['comment'].apply(tokenize_func)
 
