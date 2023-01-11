@@ -11,5 +11,5 @@ Three approaches were used in this work:
 - approach based on recurrent neural networks (RNN);
 - transformer-based approach (Bert)
 ____
-Information about the course is available at the ([link](https://ods.ai/tracks/nlp-course-autumn-22))
+Information about the course is available at the [link](https://ods.ai/tracks/nlp-course-autumn-22)
 
